@@ -55,7 +55,7 @@ jobs:
         env:
           PACKAGE_PATH: ${{ inputs.package_path }}
         run: |
-          sudo -u builder -H env \
+          sudo -u builder -H \
             .github/scripts/build-package.sh \
               "$PACKAGE_PATH" "pond-artifacts/$PACKAGE_PATH"
 
