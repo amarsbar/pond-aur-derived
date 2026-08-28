@@ -117,7 +117,7 @@ Upstream-Commit: $upstream_commit"
 
   if [[ "$upstream_subject" =~ \(\#([0-9]+)\)$ ]]; then
     upstream_pr_number="${BASH_REMATCH[1]}"
-    commit_body+=$'\n'"Upstream-PR: https://github.com/$upstream_repository/pull/$upstream_pr_number"
+    commit_body+=$'\n'"Upstream-PR: https://redirect.github.com/$upstream_repository/pull/$upstream_pr_number"
     merged_by="$(gh api "repos/$upstream_repository/pulls/$upstream_pr_number" --jq '.merged_by.login // empty' 2>/dev/null || true)"
     [[ -z "$merged_by" ]] || commit_body+=$'\n'"Upstream-Merged-By: $merged_by"
   fi
