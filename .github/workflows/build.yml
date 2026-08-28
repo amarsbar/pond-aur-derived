@@ -43,41 +43,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify build inputs
-        env:
-          PACKAGE_PATH: ${{ inputs.package_path }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-        run: |
-          set -euo pipefail
-
-          [[ "$PACKAGE_PATH" =~ ^[A-Za-z0-9@._+-]+$ ]] || {
-            printf 'Unsafe package path: %s\n' "$PACKAGE_PATH" >&2
-            exit 1
-          }
-          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]]
-          [[ -f "$PACKAGE_PATH/PKGBUILD" ]]
-
-          git fetch --no-tags origin main
-          git merge-base --is-ancestor HEAD refs/remotes/origin/main || {
-            printf '%s is not reachable from Pond main.\n' "$SOURCE_SHA" >&2
-            exit 1
-          }
-
-          package_commit="$(git log -1 --format=%H "$SOURCE_SHA" -- "$PACKAGE_PATH")"
-          [[ "$package_commit" =~ ^[0-9a-f]{40}$ ]]
-          # Imported package commits retain their CachyOS SHA directly. Later
-          # Pond mirror commits record that SHA in an Upstream-Commit trailer.
-          package_upstream_sha="$(
-            git show -s --format=%B "$package_commit" |
-              git interpret-trailers --parse |
-              sed -n 's/^Upstream-Commit: //p' |
-              tail -n1
-          )"
-          package_upstream_sha="${package_upstream_sha:-$package_commit}"
-          [[ "$package_upstream_sha" =~ ^[0-9a-f]{40}$ ]]
-          printf 'POND_UPSTREAM_SHA=%s\n' "$package_upstream_sha" >>"$GITHUB_ENV"
-
       - name: Configure build user
         run: |
           useradd --create-home builder
@@ -89,16 +54,8 @@ jobs:
       - name: Build package
         env:
           PACKAGE_PATH: ${{ inputs.package_path }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           sudo -u builder -H env \
-            POND_SOURCE_REPOSITORY="$GITHUB_REPOSITORY" \
-            POND_SOURCE_SHA="$SOURCE_SHA" \
-            POND_UPSTREAM_REPOSITORY="CachyOS/cachyos-aur-derived" \
-            POND_UPSTREAM_SHA="$POND_UPSTREAM_SHA" \
-            GITHUB_WORKFLOW_REF="$GITHUB_WORKFLOW_REF" \
-            GITHUB_RUN_ID="$GITHUB_RUN_ID" \
-            GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME" \
             .github/scripts/build-package.sh \
               "$PACKAGE_PATH" "pond-artifacts/$PACKAGE_PATH"
 
