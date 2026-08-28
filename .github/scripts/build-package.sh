@@ -56,36 +56,8 @@ if [[ "$(printf '%s\n' "${expected_files[@]}")" != "$(printf '%s\n' "${actual_fi
   exit 1
 fi
 
-packages_jsonl="$(mktemp)"
 sources_jsonl="$(mktemp)"
-trap 'rm -f "$packages_jsonl" "$sources_jsonl"' EXIT
-
-for filename in "${actual_files[@]}"; do
-  package_file="$artifact_dir/$filename"
-  pkginfo="$(bsdtar -xOf "$package_file" .PKGINFO)"
-  pkgname="$(awk -F ' = ' '$1 == "pkgname" {print $2; exit}' <<<"$pkginfo")"
-  pkgver="$(awk -F ' = ' '$1 == "pkgver" {print $2; exit}' <<<"$pkginfo")"
-  arch="$(awk -F ' = ' '$1 == "arch" {print $2; exit}' <<<"$pkginfo")"
-
-  [[ -n "$pkgname" && -n "$pkgver" && -n "$arch" ]] || die "incomplete .PKGINFO in $filename"
-  [[ "$arch" == "any" || "$arch" == "x86_64" ]] || die "unsupported architecture $arch in $filename"
-
-  jq -cn \
-    --arg filename "$filename" \
-    --arg pkgname "$pkgname" \
-    --arg pkgver "$pkgver" \
-    --arg arch "$arch" \
-    --arg sha256 "$(sha256sum "$package_file" | cut -d' ' -f1)" \
-    --argjson size "$(stat -c %s "$package_file")" \
-    '{
-      filename: $filename,
-      pkgname: $pkgname,
-      pkgver: $pkgver,
-      arch: $arch,
-      size: $size,
-      sha256: $sha256
-    }' >>"$packages_jsonl"
-done
+trap 'rm -f "$sources_jsonl"' EXIT
 
 if [[ -d "$package_dir/src" ]]; then
   while IFS= read -r -d '' git_dir; do
@@ -98,34 +70,17 @@ if [[ -d "$package_dir/src" ]]; then
 fi
 
 manifest="$artifact_dir/manifest-$package_path.json"
+filenames="$(jq -cn --args '$ARGS.positional' "${actual_files[@]}")"
 jq -n \
   --arg package_base "$package_path" \
-  --arg source_repository "${POND_SOURCE_REPOSITORY:-}" \
-  --arg source_sha "${POND_SOURCE_SHA:-}" \
-  --arg upstream_repository "${POND_UPSTREAM_REPOSITORY:-}" \
-  --arg upstream_sha "${POND_UPSTREAM_SHA:-}" \
-  --arg workflow "${GITHUB_WORKFLOW_REF:-}" \
-  --arg run_id "${GITHUB_RUN_ID:-}" \
-  --arg event "${GITHUB_EVENT_NAME:-}" \
-  --slurpfile packages "$packages_jsonl" \
+  --argjson filenames "$filenames" \
   --slurpfile resolved_git_sources "$sources_jsonl" \
   '{
     schema: 1,
     package_base: $package_base,
-    source: {
-      repository: $source_repository,
-      sha: $source_sha,
-      upstream_repository: $upstream_repository,
-      upstream_sha: $upstream_sha
-    },
-    workflow: {
-      identity: $workflow,
-      run_id: $run_id,
-      event: $event
-    },
-    packages: $packages,
+    filenames: $filenames,
     resolved_git_sources: $resolved_git_sources
   }' >"$manifest"
 
-jq -e '.packages | length > 0' "$manifest" >/dev/null
+jq -e '.filenames | length > 0' "$manifest" >/dev/null
 printf 'Built and validated %s (%s output file(s)).\n' "$package_path" "${#actual_files[@]}"
