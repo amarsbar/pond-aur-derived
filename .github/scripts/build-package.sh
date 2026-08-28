@@ -56,30 +56,15 @@ if [[ "$(printf '%s\n' "${expected_files[@]}")" != "$(printf '%s\n' "${actual_fi
   exit 1
 fi
 
-sources_jsonl="$(mktemp)"
-trap 'rm -f "$sources_jsonl"' EXIT
-
-if [[ -d "$package_dir/src" ]]; then
-  while IFS= read -r -d '' git_dir; do
-    source_dir="${git_dir%/.git}"
-    jq -cn \
-      --arg path "${source_dir#"$package_dir/"}" \
-      --arg commit "$(git -C "$source_dir" rev-parse HEAD)" \
-      '{path: $path, commit: $commit}' >>"$sources_jsonl"
-  done < <(find "$package_dir/src" -type d -name .git -print0)
-fi
-
 manifest="$artifact_dir/manifest-$package_path.json"
 filenames="$(jq -cn --args '$ARGS.positional' "${actual_files[@]}")"
 jq -n \
   --arg package_base "$package_path" \
   --argjson filenames "$filenames" \
-  --slurpfile resolved_git_sources "$sources_jsonl" \
   '{
     schema: 1,
     package_base: $package_base,
-    filenames: $filenames,
-    resolved_git_sources: $resolved_git_sources
+    filenames: $filenames
   }' >"$manifest"
 
 jq -e '.filenames | length > 0' "$manifest" >/dev/null
