@@ -54,8 +54,6 @@ dispatch_build() {
     sleep "$((attempt * 2))"
   done
 
-  # The commit is already on main at this point. V1 deliberately fails loudly
-  # for manual retry; the publisher will never accept a missing build.
   die "unable to dispatch the build for $package_path at $source_sha"
 }
 
