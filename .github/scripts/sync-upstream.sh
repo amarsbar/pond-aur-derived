@@ -41,20 +41,18 @@ last_upstream_commit() {
 
 dispatch_build() {
   local package_path="$1"
-  local source_sha="$2"
   local attempt
 
   for attempt in 1 2 3 4 5; do
     if gh workflow run build.yml \
       --ref "$branch" \
-      -f package_path="$package_path" \
-      -f source_sha="$source_sha"; then
+      -f package_path="$package_path"; then
       return 0
     fi
     sleep "$((attempt * 2))"
   done
 
-  die "unable to dispatch the build for $package_path at $source_sha"
+  die "unable to dispatch the build for $package_path"
 }
 
 git fetch --no-tags origin "$branch"
@@ -137,10 +135,9 @@ if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$branch")" ]]; then
   git push origin "HEAD:refs/heads/$branch"
 fi
 
-source_sha="$(git rev-parse HEAD)"
 while IFS= read -r package_path; do
   [[ -f "$package_path/PKGBUILD" ]] || continue
-  dispatch_build "$package_path" "$source_sha"
+  dispatch_build "$package_path"
 done < <(printf '%s\n' "${!changed_packages[@]}" | LC_ALL=C sort)
 
 printf 'Pond is synchronized with CachyOS at %s.\n' "$(git rev-parse "$upstream_ref")"
