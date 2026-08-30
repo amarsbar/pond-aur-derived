@@ -59,13 +59,20 @@ git fetch --no-tags origin "$branch"
 git checkout -B "$branch" "origin/$branch"
 [[ -z "$(git status --porcelain)" ]] || die 'Pond checkout is not clean'
 
+mapfile -t pond_packages <.github/pond-packages.txt
+pond_excludes=()
+for package_path in "${pond_packages[@]}"; do
+  pond_excludes+=(":(exclude)$package_path" ":(exclude)$package_path/**")
+done
+
 cursor="$(last_upstream_commit)"
 git cat-file -e "$cursor^{commit}" 2>/dev/null || die "unknown recorded upstream commit: $cursor"
 git merge-base --is-ancestor "$cursor" "$upstream_ref" ||
   die 'recorded upstream commit is no longer reachable from CachyOS master'
 
 git diff --quiet HEAD "$cursor" -- . \
-  ':(exclude).github' ':(exclude).github/**' ||
+  ':(exclude).github' ':(exclude).github/**' \
+  "${pond_excludes[@]}" ||
   die 'Pond content has drifted from its recorded CachyOS commit'
 
 git config user.name 'github-actions[bot]'
@@ -81,7 +88,8 @@ for upstream_commit in "${upstream_commits[@]}"; do
   trap 'rm -f "$patch_file"' EXIT
 
   git diff --binary --full-index "$parent" "$upstream_commit" -- . \
-    ':(exclude).github' ':(exclude).github/**' >"$patch_file"
+    ':(exclude).github' ':(exclude).github/**' \
+    "${pond_excludes[@]}" >"$patch_file"
 
   if [[ ! -s "$patch_file" ]]; then
     rm -f "$patch_file"
@@ -103,7 +111,8 @@ for upstream_commit in "${upstream_commits[@]}"; do
       changed_packages["$top_path"]=1
     fi
   done < <(git diff --name-only -z "$parent" "$upstream_commit" -- . \
-    ':(exclude).github' ':(exclude).github/**')
+    ':(exclude).github' ':(exclude).github/**' \
+    "${pond_excludes[@]}")
 
   git apply --index "$patch_file"
   git diff --cached --quiet -- .github || die 'upstream patch changed Pond-owned .github content'
@@ -128,7 +137,8 @@ Upstream-Commit: $upstream_commit"
 done
 
 git diff --quiet HEAD "$upstream_ref" -- . \
-  ':(exclude).github' ':(exclude).github/**' ||
+  ':(exclude).github' ':(exclude).github/**' \
+  "${pond_excludes[@]}" ||
   die 'local Pond main does not match CachyOS after synchronization'
 
 if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$branch")" ]]; then

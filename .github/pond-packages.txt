@@ -1,0 +1,3 @@
+lib32-nvidia-470xx-utils
+nvidia-470xx-settings
+nvidia-580xx-settings
