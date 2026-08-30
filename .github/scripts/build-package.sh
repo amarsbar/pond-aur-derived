@@ -56,6 +56,19 @@ if [[ "$(printf '%s\n' "${expected_files[@]}")" != "$(printf '%s\n' "${actual_fi
   exit 1
 fi
 
+# GitHub artifacts reject ':'. The package epoch remains intact in .PKGINFO.
+normalized_files=()
+for filename in "${actual_files[@]}"; do
+  normalized_filename="${filename/:/_}"
+  if [[ "$normalized_filename" != "$filename" ]]; then
+    [[ ! -e "$artifact_dir/$normalized_filename" ]] ||
+      die "normalized package filename already exists: $normalized_filename"
+    mv -- "$artifact_dir/$filename" "$artifact_dir/$normalized_filename"
+  fi
+  normalized_files+=("$normalized_filename")
+done
+actual_files=("${normalized_files[@]}")
+
 manifest="$artifact_dir/manifest-$package_path.json"
 filenames="$(jq -cn --args '$ARGS.positional' "${actual_files[@]}")"
 jq -n \
