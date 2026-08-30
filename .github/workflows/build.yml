@@ -36,6 +36,9 @@ jobs:
       - name: Install workflow dependencies
         run: pacman -Syu --needed --noconfirm git jq sudo
 
+      - name: Configure package compression
+        run: sed -i 's/^COMPRESSZST=.*/COMPRESSZST=(zstd -c -T0 --ultra -20 -)/' /etc/makepkg.conf
+
       - name: Check out the updated Pond commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
