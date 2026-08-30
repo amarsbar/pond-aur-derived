@@ -28,6 +28,24 @@ find "$artifact_dir" -maxdepth 1 -type f \
 
 cd "$package_dir"
 
+mapfile -t valid_pgp_keys < <(
+  makepkg --printsrcinfo |
+    awk '$1 == "validpgpkeys" && $2 == "=" { print $3 }' |
+    LC_ALL=C sort -u
+)
+
+for fingerprint in "${valid_pgp_keys[@]}"; do
+  [[ "$fingerprint" =~ ^[0-9A-F]{40}$ ]] ||
+    die "invalid PGP fingerprint in PKGBUILD: $fingerprint"
+  bundled_key="keys/pgp/$fingerprint.asc"
+  if [[ -f "$bundled_key" ]]; then
+    gpg --batch --import "$bundled_key"
+  fi
+  if ! gpg --batch --list-keys "$fingerprint" >/dev/null 2>&1; then
+    gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$fingerprint"
+  fi
+done
+
 export PKGDEST="$artifact_dir"
 makepkg --syncdeps --noconfirm --cleanbuild
 
