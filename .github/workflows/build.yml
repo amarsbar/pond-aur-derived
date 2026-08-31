@@ -50,6 +50,7 @@ jobs:
               awk -F: '$1 == "fpr" { print $10; exit }'
           )"
           [[ "$fingerprint" == "B14C6E33AD2B9746842FFD245E3D63FCAA540F08" ]]
+          pacman-key --init
           pacman-key --add .github/keys/pond-repository.asc
           pacman-key --lsign-key "$fingerprint"
           printf '%s\n' \
