@@ -10,7 +10,7 @@ url="https://github.com/zotero/zotero"
 license=('AGPL-3.0-or-later')
 depends=('dbus-glib' 'gtk3' 'nss' 'libxt')
 makedepends=('npm' 'git' 'zip' 'unzip' 'perl' 'python>=3' 'curl' 'wget' 'rsync' 'nodejs' 'patch' 'tar')
-_tag=37b0217ad7923fefb6196ab559ec3a7d28e5ab9d # git rev-parse $pkgver
+_tag=d3f1ccf3380fde351854d849977c55467f4609a6 # git rev-parse $pkgver
 source=("zotero.desktop"
         "zotero-client::git+https://github.com/zotero/zotero.git#tag=${_tag}"
         "zotero-translators::git+https://github.com/zotero/translators.git"
@@ -29,7 +29,7 @@ source=("zotero.desktop"
         "zotero-structured-document-text::git+https://github.com/zotero/structured-document-text.git"
         "disable-updater.patch")
 sha256sums=('eab76db7a56a4d9aaa17baaf240b82fcf57944a4ddf8ef1b58cc64182426cedc'
-            '786ed6364f8be25815bae471b27b5f74a8f61737317fc141e3c9e32ca7acdbdb'
+            'c27b78ea4f6fef7a2f46ae64759ba6c2316aac95cca4324079f90ad4b6ae2d6c'
             'SKIP'
             'SKIP'
             'SKIP'
