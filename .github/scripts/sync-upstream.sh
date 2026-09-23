@@ -70,20 +70,20 @@ git cat-file -e "$cursor^{commit}" 2>/dev/null || die "unknown recorded upstream
 git merge-base --is-ancestor "$cursor" "$upstream_ref" ||
   die 'recorded upstream commit is no longer reachable from CachyOS master'
 
-git diff --quiet HEAD "$cursor" -- . \
-  ':(exclude).github' ':(exclude).github/**' \
-  "${pond_excludes[@]}" ||
-  die 'Pond content has drifted from its recorded CachyOS commit'
-
 git config user.name 'github-actions[bot]'
 git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 git config commit.gpgSign false
 
 declare -A changed_packages=()
 mapfile -t upstream_commits < <(git rev-list --reverse --first-parent "$cursor..$upstream_ref")
+if ((${#upstream_commits[@]} == 0)); then
+  printf 'No new CachyOS commits to synchronize.\n'
+  exit 0
+fi
 
 for upstream_commit in "${upstream_commits[@]}"; do
-  parent="$(git rev-parse "$upstream_commit^1")"
+  # Diff from Pond so upstream replaces local edits instead of conflicting.
+  parent="$(git rev-parse HEAD)"
   patch_file="$(mktemp)"
   trap 'rm -f "$patch_file"' EXIT
 
