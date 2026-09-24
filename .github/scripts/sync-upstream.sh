@@ -82,14 +82,19 @@ if ((${#upstream_commits[@]} == 0)); then
 fi
 
 for upstream_commit in "${upstream_commits[@]}"; do
-  # Diff from Pond so upstream replaces local edits instead of conflicting.
-  parent="$(git rev-parse HEAD)"
+  # Only overwrite files changed by this upstream commit.
+  parent="$(git rev-parse "$upstream_commit^1")"
+  mapfile -d '' -t upstream_paths < <(
+    git diff --no-renames --name-only -z "$parent" "$upstream_commit" -- . \
+      ':(exclude).github' ':(exclude).github/**' "${pond_excludes[@]}"
+  )
+  ((${#upstream_paths[@]} > 0)) || continue
+
   patch_file="$(mktemp)"
   trap 'rm -f "$patch_file"' EXIT
 
-  git diff --binary --full-index "$parent" "$upstream_commit" -- . \
-    ':(exclude).github' ':(exclude).github/**' \
-    "${pond_excludes[@]}" >"$patch_file"
+  git --literal-pathspecs diff --no-renames --binary --full-index HEAD "$upstream_commit" -- \
+    "${upstream_paths[@]}" >"$patch_file"
 
   if [[ ! -s "$patch_file" ]]; then
     rm -f "$patch_file"
@@ -110,12 +115,13 @@ for upstream_commit in "${upstream_commits[@]}"; do
     if git cat-file -e "$upstream_commit:$top_path/PKGBUILD" 2>/dev/null; then
       changed_packages["$top_path"]=1
     fi
-  done < <(git diff --name-only -z "$parent" "$upstream_commit" -- . \
-    ':(exclude).github' ':(exclude).github/**' \
-    "${pond_excludes[@]}")
+  done < <(git --literal-pathspecs diff --no-renames --name-only -z HEAD "$upstream_commit" -- \
+    "${upstream_paths[@]}")
 
   git apply --index "$patch_file"
   git diff --cached --quiet -- .github || die 'upstream patch changed Pond-owned .github content'
+  git --literal-pathspecs diff --cached --quiet "$upstream_commit" -- "${upstream_paths[@]}" ||
+    die 'changed paths do not match CachyOS after applying the patch'
 
   upstream_subject="$(git show -s --format=%s "$upstream_commit")"
   commit_subject="$(sed -E 's/ \(#[0-9]+\)$//' <<<"$upstream_subject")"
@@ -135,11 +141,6 @@ Upstream-Commit: $upstream_commit"
   rm -f "$patch_file"
   trap - EXIT
 done
-
-git diff --quiet HEAD "$upstream_ref" -- . \
-  ':(exclude).github' ':(exclude).github/**' \
-  "${pond_excludes[@]}" ||
-  die 'local Pond main does not match CachyOS after synchronization'
 
 if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$branch")" ]]; then
   git push origin "HEAD:refs/heads/$branch"
