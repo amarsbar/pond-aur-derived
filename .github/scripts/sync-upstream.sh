@@ -58,6 +58,7 @@ dispatch_build() {
 git fetch --no-tags origin "$branch"
 git checkout -B "$branch" "origin/$branch"
 [[ -z "$(git status --porcelain)" ]] || die 'Pond checkout is not clean'
+start_commit="$(git rev-parse HEAD)"
 
 mapfile -t pond_packages <.github/pond-packages.txt
 pond_excludes=()
@@ -148,6 +149,10 @@ fi
 
 while IFS= read -r package_path; do
   [[ -f "$package_path/PKGBUILD" ]] || continue
+  if git diff --quiet "$start_commit" HEAD -- "$package_path"; then
+    printf 'Skipping %s: no net package changes.\n' "$package_path"
+    continue
+  fi
   dispatch_build "$package_path"
 done < <(printf '%s\n' "${!changed_packages[@]}" | LC_ALL=C sort)
 
