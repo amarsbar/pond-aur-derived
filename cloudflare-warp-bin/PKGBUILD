@@ -10,7 +10,7 @@
 
 pkgname=cloudflare-warp-bin
 pkgver=2026.7.1377
-pkgrel=1
+pkgrel=2
 pkgdesc="Cloudflare Warp Client"
 arch=('x86_64')
 url="https://1.1.1.1"
